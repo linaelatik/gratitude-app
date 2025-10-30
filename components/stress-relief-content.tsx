@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Textarea } from "@/components/ui/textarea"
 import { Sparkles, Heart, Loader2 } from "lucide-react"
 
 interface Entry {
@@ -16,11 +17,18 @@ interface StressReliefContentProps {
 }
 
 export function StressReliefContent({ entries }: StressReliefContentProps) {
+  const [stressorInput, setStressorInput] = useState("") 
   const [reflection, setReflection] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const generateReflection = async () => {
+    // Validation 
+    if (!stressorInput.trim()) {
+      setError("Please describe what's stressing you")
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     setReflection(null)
@@ -31,7 +39,10 @@ export function StressReliefContent({ entries }: StressReliefContentProps) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ entries }),
+        body: JSON.stringify({ 
+          entries,
+          stressor: stressorInput //- send stressor
+        }),
       })
 
       if (!response.ok) {
@@ -61,18 +72,24 @@ export function StressReliefContent({ entries }: StressReliefContentProps) {
         </div>
         <h1 className="mb-2 text-3xl font-bold">Feeling Stressed?</h1>
         <p className="text-balance text-lg text-muted-foreground">
-          Take a moment to reflect on the positive things in your life. Let AI remind you of your gratitude journey.
+          Tell me what's on your mind, and I'll help you reconnect with gratitude.
         </p>
       </div>
 
-      {/* Generate Reflection Button */}
+      {/* Stressor Input Form */}
       {!reflection && (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-8">
+          <CardHeader>
+            <CardTitle>What's stressing you right now?</CardTitle>
+            <CardDescription>
+              Describe what's on your mind, and I'll reflect on your gratitude journey to help provide perspective.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {entries.length === 0 ? (
               <div className="text-center">
                 <p className="mb-4 text-muted-foreground">
-                  You don&apos;t have any gratitude entries yet. Start journaling to unlock AI reflections!
+                  You don't have any gratitude entries yet. Start journaling to unlock AI reflections!
                 </p>
                 <Button asChild>
                   <a href="/dashboard">Go to Dashboard</a>
@@ -80,10 +97,19 @@ export function StressReliefContent({ entries }: StressReliefContentProps) {
               </div>
             ) : (
               <>
-                <p className="text-center text-muted-foreground">
-                  Click below to generate a personalized reflection based on your recent gratitude entries.
-                </p>
-                <Button size="lg" onClick={generateReflection} disabled={isLoading}>
+                <Textarea
+                  placeholder="E.g., 'I'm anxious about my presentation tomorrow' or 'Feeling overwhelmed with work'"
+                  value={stressorInput}
+                  onChange={(e) => setStressorInput(e.target.value)}
+                  rows={4}
+                  className="resize-none"
+                />
+                <Button 
+                  size="lg" 
+                  onClick={generateReflection} 
+                  disabled={isLoading || !stressorInput.trim()}
+                  className="w-full"
+                >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -111,26 +137,16 @@ export function StressReliefContent({ entries }: StressReliefContentProps) {
               <Sparkles className="h-5 w-5 text-primary" />
               <CardTitle>Your AI Reflection</CardTitle>
             </div>
-            <CardDescription>Based on your recent gratitude entries</CardDescription>
+            <CardDescription>Based on: "{stressorInput}"</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="whitespace-pre-wrap leading-relaxed">{reflection}</p>
             <div className="mt-6 flex gap-2">
-              <Button onClick={generateReflection} disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Generating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Generate New Reflection
-                  </>
-                )}
-              </Button>
-              <Button variant="outline" onClick={() => setReflection(null)}>
-                Clear
+              <Button onClick={() => {
+                setReflection(null)
+                setStressorInput("")
+              }}>
+                Try Another Reflection
               </Button>
             </div>
           </CardContent>
@@ -141,6 +157,9 @@ export function StressReliefContent({ entries }: StressReliefContentProps) {
       {entries.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-2xl font-semibold">Your Recent Gratitude Moments</h2>
+          <p className="text-sm text-muted-foreground">
+            The AI will reference these entries when generating your reflection
+          </p>
           <div className="grid gap-4 md:grid-cols-2">
             {entries.map((entry) => (
               <Card key={entry.id}>
