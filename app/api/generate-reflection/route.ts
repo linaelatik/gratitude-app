@@ -22,6 +22,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Stressor description required" }, { status: 400 })
     }
 
+    // Get user from session
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     // Format entries for the prompt
     const entriesText = entries
       .map((entry, index) => {
@@ -34,7 +42,6 @@ export async function POST(req: Request) {
       })
       .join("\n\n")
 
-    // UPDATED PROMPT - now includes stressor
     const prompt = `You are a compassionate AI assistant helping someone who is feeling stressed.
 
 Current stressor: "${stressor}"
@@ -58,6 +65,16 @@ Write a thoughtful, personalized reflection (2-3 paragraphs) that acknowledges t
       prompt,
       maxTokens: 500,
       temperature: 0.8,
+    })
+
+    // NEW: Log this interaction to database for research
+    const entryIds = entries.map(e => e.id)
+    
+    await supabase.from("stress_queries").insert({
+      user_id: user.id,
+      stressor_text: stressor,
+      retrieved_entry_ids: entryIds,
+      ai_response: text,
     })
 
     return NextResponse.json({ reflection: text })
