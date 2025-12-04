@@ -8,6 +8,7 @@ import os
 import jwt
 from functools import wraps
 
+
 app = Flask(__name__)
 
 # Enable CORS for your Next.js frontend
@@ -80,7 +81,21 @@ class Entry(db.Model):
             'content': self.content,
             'created_at': self.created_at.isoformat()
         }
+class StressQuery(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    stressor = db.Column(db.Text, nullable=False)
+    ai_response = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'stressor': self.stressor,
+            'ai_response': self.ai_response,
+            'created_at': self.created_at.isoformat()
+        }
 # JWT token functions
 def generate_token(user_id):
     payload = {
@@ -168,10 +183,6 @@ def register():
 def login():
     try:
         data = request.get_json()
-        
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-        
         email = data.get('email')
         password = data.get('password')
         
@@ -180,11 +191,13 @@ def login():
         
         user = User.query.filter_by(email=email).first()
         
-        if not user or not user.check_password(password):
-            return jsonify({'error': 'Invalid credentials'}), 401
+        if not user:
+            return jsonify({'error': 'No account found with this email'}), 404
+        
+        if not user.check_password(password):
+            return jsonify({'error': 'Incorrect password'}), 401
         
         token = generate_token(user.id)
-        
         return jsonify({
             'token': token,
             'user': user.to_dict()
@@ -192,7 +205,6 @@ def login():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 @app.route('/api/auth/me', methods=['GET'])
 @token_required
 def get_current_user(current_user):
@@ -227,8 +239,87 @@ def create_entry(current_user):
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'OK', 'message': 'Flask backend is running!'})
+@app.route('/api/entries/<int:entry_id>', methods=['DELETE'])
+@token_required
+def delete_entry(current_user, entry_id):
+    try:
+        entry = Entry.query.filter_by(id=entry_id, user_id=current_user.id).first()
+        
+        if not entry:
+            return jsonify({'error': 'Entry not found'}), 404
+        
+        db.session.delete(entry)
+        db.session.commit()
+        
+        return jsonify({'message': 'Entry deleted successfully'})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
+# Stress relief routes
+@app.route('/api/stress-relief/generate', methods=['POST'])
+@token_required
+def generate_stress_reflection(current_user):
+    try:
+        data = request.get_json()
+        stressor = data.get('stressor')
+        
+        if not stressor:
+            return jsonify({'error': 'Stressor text required'}), 400
+        
+        # Get user's recent gratitude entries for context
+        recent_entries = Entry.query.filter_by(user_id=current_user.id)\
+            .order_by(Entry.created_at.desc())\
+            .limit(5)\
+            .all()
+        
+        # Create context from gratitude entries
+        gratitude_context = ""
+        if recent_entries:
+            gratitude_context = "Based on your recent gratitude entries: " + \
+                "; ".join([entry.content[:100] for entry in recent_entries])
+        
+        # Generate AI response (you'll need OpenAI API key)
+        # For now, return a placeholder response
+        ai_response = f"I understand you're feeling stressed about: {stressor}. " + \
+                     f"{gratitude_context} Remember that challenges are temporary, " + \
+                     "and you have the strength to overcome this. Take a deep breath " + \
+                     "and focus on one small step you can take right now."
+        
+        # Save the interaction for thesis research
+        stress_query = StressQuery(
+            user_id=current_user.id,
+            stressor=stressor,
+            ai_response=ai_response
+        )
+        db.session.add(stress_query)
+        db.session.commit()
+        
+        return jsonify({
+            'ai_response': ai_response,
+            'query_id': stress_query.id
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/stress-relief/history', methods=['GET'])
+@token_required
+def get_stress_history(current_user):
+    try:
+        stress_queries = StressQuery.query.filter_by(user_id=current_user.id)\
+            .order_by(StressQuery.created_at.desc())\
+            .all()
+        
+        return jsonify({
+            'history': [query.to_dict() for query in stress_queries]
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5001)
+

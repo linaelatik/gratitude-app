@@ -25,28 +25,27 @@ interface Entry {
 
 interface EntriesListProps {
   entries: Entry[]
+  onEntryDeleted: () => void  // Added this line
 }
 
-export function EntriesList({ entries }: EntriesListProps) {
+export function EntriesList({ entries, onEntryDeleted }: EntriesListProps) {  // Added onEntryDeleted
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const router = useRouter()
 
   const handleDelete = async () => {
     if (!deleteId) return
-
+    
     setIsDeleting(true)
     try {
-      const { error } = await supabase.from("entries").delete().eq("id", deleteId)
-
-      if (error) throw error
-
-      router.refresh()
+      await supabase.deleteEntry(deleteId)
+      onEntryDeleted() // Refresh the entries list
+      setDeleteId(null)
     } catch (err) {
-      console.error("Failed to delete entry:", err)
+      console.error("Delete error:", err)
+      // Handle error here if needed
     } finally {
       setIsDeleting(false)
-      setDeleteId(null)
     }
   }
 

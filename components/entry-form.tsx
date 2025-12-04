@@ -12,9 +12,10 @@ import { Loader2 } from "lucide-react"
 
 interface EntryFormProps {
   userId: string
+  onEntryCreated: () => void  // Add this line
 }
 
-export function EntryForm({ userId }: EntryFormProps) {
+export function EntryForm({ userId, onEntryCreated }: EntryFormProps) {
   const [content, setContent] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -23,27 +24,19 @@ export function EntryForm({ userId }: EntryFormProps) {
     e.preventDefault()
     
     if (!content.trim()) return
-  
+
     setIsLoading(true)
     setError(null)
-  
+
     try {
-      // Use the direct Flask client method instead of table interface
-      const response = await supabase.createEntry(content.trim())
+      await supabase.createEntry(content.trim())
       
-      console.log("Entry created:", response)
       setContent("")
-      router.refresh()
+      onEntryCreated() // Refresh the entries list
       
     } catch (err) {
       console.error("Entry creation error:", err)
-      
-      let errorMessage = "Failed to save entry"
-      if (err instanceof Error) {
-        errorMessage = err.message
-      }
-      
-      setError(errorMessage)
+      setError(err instanceof Error ? err.message : "Failed to save entry")
     } finally {
       setIsLoading(false)
     }

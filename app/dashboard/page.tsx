@@ -15,8 +15,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
-  useEffect(() => {
-    const checkAuth = async () => {
+  const loadUserData = async () => {
+    try {
+      // Check authentication
       const { data: { user } } = await supabase.auth.getUser()
       
       if (!user) {
@@ -25,12 +26,32 @@ export default function DashboardPage() {
       }
       
       setUser(user)
-      // Load entries here later
+      
+      // Load entries
+      const entriesData = await supabase.getEntries()
+      setEntries(entriesData.entries || [])
+      
+    } catch (error) {
+      console.error('Error loading user data:', error)
+      router.push('/auth/login')
+    } finally {
       setLoading(false)
     }
+  }
 
-    checkAuth()
+  useEffect(() => {
+    loadUserData()
   }, [router])
+
+  // Function to refresh entries after creating new one
+  const refreshEntries = async () => {
+    try {
+      const entriesData = await supabase.getEntries()
+      setEntries(entriesData.entries || [])
+    } catch (error) {
+      console.error('Error refreshing entries:', error)
+    }
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>
@@ -49,8 +70,8 @@ export default function DashboardPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="grid gap-8 lg:grid-cols-3">
             <div className="space-y-8 lg:col-span-2">
-              <EntryForm userId={user.id} />
-              <EntriesList entries={entries} />
+              <EntryForm userId={user.id} onEntryCreated={refreshEntries} />
+              <EntriesList entries={entries} onEntryDeleted={refreshEntries} />
             </div>
             <div className="space-y-6">
               <StreakCard streak={streak} totalEntries={entries.length} />
