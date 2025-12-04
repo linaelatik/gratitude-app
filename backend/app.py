@@ -7,7 +7,18 @@ from datetime import datetime, timedelta
 import os
 import jwt
 from functools import wraps
+import openai
+from dotenv import load_dotenv
+import os
+import numpy as np
 
+def cosine_similarity(vec1, vec2):
+    """Calculate cosine similarity between two vectors"""
+    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+load_dotenv()
+
+openai.api_key = os.environ.get('OPENAI_API_KEY')
 
 app = Flask(__name__)
 
@@ -256,7 +267,6 @@ def delete_entry(current_user, entry_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Stress relief routes
 @app.route('/api/stress-relief/generate', methods=['POST'])
 @token_required
 def generate_stress_reflection(current_user):
@@ -267,24 +277,113 @@ def generate_stress_reflection(current_user):
         if not stressor:
             return jsonify({'error': 'Stressor text required'}), 400
         
-        # Get user's recent gratitude entries for context
-        recent_entries = Entry.query.filter_by(user_id=current_user.id)\
-            .order_by(Entry.created_at.desc())\
-            .limit(5)\
-            .all()
+        # Get ALL user entries for better matching
+        all_entries = Entry.query.filter_by(user_id=current_user.id).all()
         
-        # Create context from gratitude entries
+        relevant_entries = []
+        relevance_level = "none"
+        context_intro = ""
+        
+        if all_entries and openai.api_key:
+            try:
+                # Get embedding for the stressor
+                stressor_response = openai.Embedding.create(
+                    model="text-embedding-ada-002",
+                    input=stressor
+                )
+                stressor_embedding = stressor_response['data'][0]['embedding']
+                
+                # Calculate similarity for each entry
+                entry_similarities = []
+                for entry in all_entries:
+                    try:
+                        entry_response = openai.Embedding.create(
+                            model="text-embedding-ada-002",
+                            input=entry.content
+                        )
+                        entry_embedding = entry_response['data'][0]['embedding']
+                        
+                        # Calculate cosine similarity
+                        similarity = cosine_similarity(stressor_embedding, entry_embedding)
+                        entry_similarities.append({
+                            'entry': entry,
+                            'similarity': similarity
+                        })
+                    except Exception as e:
+                        print(f"Error processing entry {entry.id}: {e}")
+                        continue
+                
+                if entry_similarities:
+                    # Sort by similarity and get top 3
+                    entry_similarities.sort(key=lambda x: x['similarity'], reverse=True)
+                    top_entries = entry_similarities[:3]
+                    relevant_entries = top_entries
+                    
+                    # Determine relevance level
+                    avg_similarity = sum(e['similarity'] for e in top_entries) / len(top_entries)
+                    if avg_similarity > 0.7:
+                        relevance_level = "high"
+                        context_intro = "Based on highly relevant gratitude entries:"
+                    elif avg_similarity > 0.4:
+                        relevance_level = "medium" 
+                        context_intro = "Based on somewhat related gratitude entries:"
+                    else:
+                        relevance_level = "low"
+                        context_intro = "While not directly related, here are some recent positive moments:"
+                        
+            except Exception as e:
+                print(f"Embedding error: {e}")
+                # Fallback to recent entries
+                relevant_entries = [{'entry': entry, 'similarity': 0.0} for entry in all_entries[:3]]
+                relevance_level = "fallback"
+                context_intro = "Here are some of your recent gratitude entries:"
+        else:
+            # No entries or no OpenAI key - use recent entries
+            recent_entries = all_entries[-3:] if all_entries else []
+            relevant_entries = [{'entry': entry, 'similarity': 0.0} for entry in recent_entries]
+            relevance_level = "recent"
+            context_intro = "Here are some of your recent gratitude entries:"
+        
+        # Create context from selected entries
         gratitude_context = ""
-        if recent_entries:
-            gratitude_context = "Based on your recent gratitude entries: " + \
-                "; ".join([entry.content[:100] for entry in recent_entries])
+        if relevant_entries:
+            entries_text = "\n".join([
+                f"- {e['entry'].content} (from {e['entry'].created_at.strftime('%B %d')}, relevance: {e['similarity']:.2f})" 
+                for e in relevant_entries
+            ])
+            gratitude_context = f"{context_intro}\n{entries_text}"
         
-        # Generate AI response (you'll need OpenAI API key)
-        # For now, return a placeholder response
-        ai_response = f"I understand you're feeling stressed about: {stressor}. " + \
-                     f"{gratitude_context} Remember that challenges are temporary, " + \
-                     "and you have the strength to overcome this. Take a deep breath " + \
-                     "and focus on one small step you can take right now."
+        # Generate AI response with relevance context
+        try:
+            if openai.api_key:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {
+                            "role": "system", 
+                            "content": "You are a supportive AI assistant helping with stress relief. Provide empathetic, helpful responses that acknowledge the user's feelings while offering perspective. Be warm, understanding, and constructive. If the gratitude entries aren't highly relevant, acknowledge this honestly but still help the user find perspective. Keep responses concise (2-3 sentences max)."
+                        },
+                        {
+                            "role": "user",
+                            "content": f"""I'm feeling stressed about: {stressor}
+
+{gratitude_context}
+
+Relevance level: {relevance_level}
+
+Please provide supportive guidance. If the relevance level is 'low' or 'fallback', acknowledge that these entries aren't directly related but can still provide perspective."""
+                        }
+                    ],
+                    max_tokens=150,
+                    temperature=0.7
+                )
+                ai_response = response.choices[0].message.content.strip()
+            else:
+                ai_response = f"I understand you're feeling stressed about {stressor}. Take a deep breath and remember that you've overcome challenges before."
+                
+        except Exception as e:
+            print(f"OpenAI API error: {e}")
+            ai_response = f"I understand you're feeling stressed about {stressor}. Take a deep breath and remember that you've overcome challenges before."
         
         # Save the interaction for thesis research
         stress_query = StressQuery(
@@ -297,12 +396,21 @@ def generate_stress_reflection(current_user):
         
         return jsonify({
             'ai_response': ai_response,
+            'related_entries': [
+                {
+                    **e['entry'].to_dict(), 
+                    'similarity_score': round(e['similarity'], 3)
+                } for e in relevant_entries
+            ],
+            'relevance_level': relevance_level,
+            'total_entries_analyzed': len(all_entries),
             'query_id': stress_query.id
         })
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
+    
+    
 @app.route('/api/stress-relief/history', methods=['GET'])
 @token_required
 def get_stress_history(current_user):
