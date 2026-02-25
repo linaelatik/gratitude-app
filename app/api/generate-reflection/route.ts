@@ -29,6 +29,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // SAFETY CHECK: Check the stressor text for crisis content
+    const safetyResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/safety-check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        entry: stressor.trim(),
+        checkType: 'reflection'
+      })
+    })
+
+    const safetyResult = await safetyResponse.json()
+
+    // If crisis detected, return crisis flag instead of generating reflection
+    if (safetyResult.flagged) {
+      console.log(`Crisis ${safetyResult.category} detected in reflection - not generating AI response`)
+      
+      // DO NOT log this to database - privacy protection
+      return NextResponse.json({
+        isCrisis: true,
+        category: safetyResult.category,
+        severity: safetyResult.severity,
+      })
+    }
+
     // Format entries for the prompt
     const entriesText = entries
       .map((entry, index) => {
@@ -42,6 +66,8 @@ export async function POST(req: Request) {
       .join("\n\n")
 
     const prompt = `You are a compassionate AI assistant helping someone who is feeling stressed.
+
+CRITICAL SAFETY INSTRUCTION: If at any point in analyzing this content you detect disclosure of abuse, violence, suicidal thoughts, self-harm, or severe crisis, STOP and respond ONLY with: "CRISIS_DETECTED:[category]" where category is suicide, self_harm, abuse, or psychosis. Do NOT provide comfort or reflection for crisis situations.
 
 Current stressor: "${stressor}"
 
@@ -66,7 +92,21 @@ Write a thoughtful, personalized reflection (2-3 paragraphs) that acknowledges t
       temperature: 0.8,
     })
 
-    // NEW: Log this interaction to database for research
+    // SAFETY CHECK: Check AI's response for crisis detection
+    if (text.includes("CRISIS_DETECTED:")) {
+      const detectedCategory = text.split(":")[1]?.trim() || "other_crisis"
+      
+      console.log(`Crisis ${detectedCategory} detected in AI reflection - not returning response`)
+      
+      // DO NOT log crisis content
+      return NextResponse.json({
+        isCrisis: true,
+        category: detectedCategory,
+        severity: "high",
+      })
+    }
+
+    // SAFE: Log this interaction to database for research
     const entryIds = entries.map(e => e.id)
     
     await supabase.from("stress_queries").insert({
@@ -76,7 +116,11 @@ Write a thoughtful, personalized reflection (2-3 paragraphs) that acknowledges t
       ai_response: text,
     })
 
-    return NextResponse.json({ reflection: text })
+    return NextResponse.json({ 
+      isCrisis: false,
+      reflection: text 
+    })
+    
   } catch (error) {
     console.error("Error generating reflection:", error)
     return NextResponse.json({ error: "Failed to generate reflection" }, { status: 500 })

@@ -59,23 +59,6 @@ export default function SignUpPage() {
         password,
       });
 
-      // Create the user record using the server-side API
-      const response = await fetch('/api/auth/create-user', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          id: authData.user.id,
-          email: email,
-          display_name: displayName || email.split("@")[0],
-        }),
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to create user account');
-      }
 
       router.push("/auth/sign-up-success");
     } catch (error: unknown) {

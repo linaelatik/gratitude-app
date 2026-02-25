@@ -11,10 +11,7 @@ import openai
 from dotenv import load_dotenv
 import os
 import numpy as np
-
-def cosine_similarity(vec1, vec2):
-    """Calculate cosine similarity between two vectors"""
-    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+import json
 
 load_dotenv()
 
@@ -34,6 +31,102 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:/
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+
+def cosine_similarity(vec1, vec2):
+    """Calculate cosine similarity between two vectors"""
+    return np.dot(vec1, vec2) / (np.linalg.norm(vec1) * np.linalg.norm(vec2))
+
+
+def check_crisis_content(text, check_type='initial'):
+    """
+    Check if text contains crisis content that requires professional intervention.
+    Returns: dict with 'flagged', 'category', 'severity', 'reason'
+    """
+    if not openai.api_key:
+        # If no OpenAI key, don't flag (fail open for now)
+        print("Warning: No OpenAI API key - safety check skipped")
+        return {
+            'flagged': False,
+            'category': 'none',
+            'severity': 'none',
+            'reason': 'No API key available'
+        }
+    
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # Use GPT-4 for better safety detection
+            messages=[
+                {
+                    "role": "system",
+                    "content": """You are a safety monitor for a mental health journaling app. Analyze content for situations requiring IMMEDIATE professional intervention, NOT AI comfort or reflection.
+
+FLAG (return flagged: true) for ANY of these categories:
+
+**IMMEDIATE DANGER:**
+- Active suicidal ideation with intent/plan ("I'm going to kill myself", "I will end it tonight")
+- Imminent self-harm with specific methods ("I'm about to cut myself", "I have the pills ready")
+- Plans to harm others with specifics
+
+**ABUSE & VIOLENCE:**
+- Ongoing physical abuse ("my partner hit me", "he beat me up", "she shoved me")
+- Sexual assault or rape (recent or ongoing)
+- Child abuse (experiencing or witnessing)
+- Domestic violence with fear for safety
+- Being held against their will
+
+**SEVERE MENTAL HEALTH CRISIS:**
+- Acute psychosis with command hallucinations
+- Severe dissociation with danger to self
+- Severe substance overdose or withdrawal
+
+**TRAFFICKING/EXPLOITATION:**
+- Being forced into sexual acts
+- Unable to leave a situation
+- Controlled by another person
+
+DO NOT FLAG for:
+- Past abuse discussed in therapy context ("I left my abusive relationship 2 years ago")
+- General relationship problems without violence
+- Emotional abuse without physical danger (still concerning but not immediate crisis)
+- Historical trauma being processed
+- General depression/anxiety without imminent risk
+- Passive suicidal thoughts without plan ("sometimes I wish I wasn't here")
+- Intrusive thoughts acknowledged without intent
+
+When flagging abuse/violence, set category to "abuse" instead of "self_harm".
+
+Respond ONLY with valid JSON in this exact format:
+{
+  "flagged": true/false,
+  "severity": "none" | "moderate" | "high",
+  "category": "none" | "self_harm" | "suicide" | "abuse" | "psychosis" | "other_crisis",
+  "reason": "brief explanation or empty string"
+}"""
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze this {check_type} content: {text}"
+                }
+            ],
+            temperature=0.2,
+            max_tokens=200
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        print(f"Safety check result for {check_type}: {result}")
+        return result
+        
+    except Exception as e:
+        print(f"Safety check error: {e}")
+        # Fail safe - don't flag if error occurs (but log it)
+        return {
+            'flagged': False,
+            'category': 'none',
+            'severity': 'none',
+            'reason': f'Error during check: {str(e)}'
+        }
+
 
 # Handle preflight requests
 @app.before_request
@@ -92,6 +185,7 @@ class Entry(db.Model):
             'content': self.content,
             'created_at': self.created_at.isoformat()
         }
+
 class StressQuery(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -107,6 +201,7 @@ class StressQuery(db.Model):
             'ai_response': self.ai_response,
             'created_at': self.created_at.isoformat()
         }
+
 # JWT token functions
 def generate_token(user_id):
     payload = {
@@ -216,6 +311,7 @@ def login():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 @app.route('/api/auth/me', methods=['GET'])
 @token_required
 def get_current_user(current_user):
@@ -237,6 +333,21 @@ def create_entry(current_user):
         if not content:
             return jsonify({'error': 'Content required'}), 400
         
+        # SAFETY CHECK BEFORE SAVING ENTRY
+        print(f"Running safety check on entry from user {current_user.id}")
+        safety_result = check_crisis_content(content.strip(), 'initial')
+        
+        if safety_result['flagged']:
+            print(f"⚠️ CRISIS DETECTED: {safety_result['category']} - Entry NOT saved")
+            # DO NOT save entry to database - return crisis response instead
+            return jsonify({
+                'isCrisis': True,
+                'category': safety_result['category'],
+                'severity': safety_result['severity']
+            }), 200  # Return 200 so frontend knows it's handled properly
+        
+        # SAFE - proceed with saving entry
+        print(f"✓ Entry passed safety check - saving to database")
         entry = Entry(user_id=current_user.id, content=content)
         db.session.add(entry)
         db.session.commit()
@@ -244,12 +355,14 @@ def create_entry(current_user):
         return jsonify({'entry': entry.to_dict()}), 201
         
     except Exception as e:
+        print(f"Error in create_entry: {e}")
         return jsonify({'error': str(e)}), 500
 
 # Health check
 @app.route('/api/health', methods=['GET'])
 def health_check():
     return jsonify({'status': 'OK', 'message': 'Flask backend is running!'})
+
 @app.route('/api/entries/<int:entry_id>', methods=['DELETE'])
 @token_required
 def delete_entry(current_user, entry_id):
@@ -277,7 +390,20 @@ def generate_stress_reflection(current_user):
         if not stressor:
             return jsonify({'error': 'Stressor text required'}), 400
         
-        # Get ALL user entries for better matching
+        # SAFETY CHECK BEFORE PROCESSING
+        print(f"Running safety check on stressor from user {current_user.id}")
+        safety_result = check_crisis_content(stressor.strip(), 'reflection')
+        
+        if safety_result['flagged']:
+            print(f"⚠️ CRISIS DETECTED: {safety_result['category']} - Reflection NOT generated")
+            # DO NOT save to database or generate AI response
+            return jsonify({
+                'isCrisis': True,
+                'category': safety_result['category'],
+                'severity': safety_result['severity']
+            }), 200
+        
+        # Get ALL user entries 
         all_entries = Entry.query.filter_by(user_id=current_user.id).all()
         
         relevant_entries = []
@@ -353,7 +479,7 @@ def generate_stress_reflection(current_user):
             ])
             gratitude_context = f"{context_intro}\n{entries_text}"
         
-        # Generate AI response with relevance context
+        # Generate AI response with SAFETY INSTRUCTION
         try:
             if openai.api_key:
                 response = openai.ChatCompletion.create(
@@ -361,7 +487,11 @@ def generate_stress_reflection(current_user):
                     messages=[
                         {
                             "role": "system", 
-                            "content": "You are a supportive AI assistant helping with stress relief. Provide empathetic, helpful responses that acknowledge the user's feelings while offering perspective. Be warm, understanding, and constructive. If the gratitude entries aren't highly relevant, acknowledge this honestly but still help the user find perspective. Keep responses concise (2-3 sentences max)."
+                            "content": """You are a supportive AI assistant helping with stress relief. 
+
+CRITICAL SAFETY INSTRUCTION: If at any point in analyzing this content you detect disclosure of abuse, violence, suicidal thoughts, self-harm, or severe crisis, STOP and respond ONLY with: "CRISIS_DETECTED:[category]" where category is suicide, self_harm, abuse, or psychosis. Do NOT provide comfort or reflection for crisis situations.
+
+For normal stress: Provide empathetic, helpful responses that acknowledge the user's feelings while offering perspective. Be warm, understanding, and constructive. If the gratitude entries aren't highly relevant, acknowledge this honestly but still help the user find perspective. Keep responses concise (2-3 sentences max)."""
                         },
                         {
                             "role": "user",
@@ -378,6 +508,19 @@ Please provide supportive guidance. If the relevance level is 'low' or 'fallback
                     temperature=0.7
                 )
                 ai_response = response.choices[0].message.content.strip()
+                
+                # SECONDARY SAFETY CHECK: Check if AI detected crisis in the conversation
+                if "CRISIS_DETECTED:" in ai_response:
+                    detected_category = ai_response.split(":")[1].strip() if ":" in ai_response else "other_crisis"
+                    print(f"⚠️ CRISIS DETECTED by AI: {detected_category} - Response NOT saved")
+                    
+                    # DO NOT save to database
+                    return jsonify({
+                        'isCrisis': True,
+                        'category': detected_category,
+                        'severity': 'high'
+                    }), 200
+                    
             else:
                 ai_response = f"I understand you're feeling stressed about {stressor}. Take a deep breath and remember that you've overcome challenges before."
                 
@@ -385,7 +528,8 @@ Please provide supportive guidance. If the relevance level is 'low' or 'fallback
             print(f"OpenAI API error: {e}")
             ai_response = f"I understand you're feeling stressed about {stressor}. Take a deep breath and remember that you've overcome challenges before."
         
-        # Save the interaction for thesis research
+        # SAFE - Save the interaction for thesis research
+        print(f"✓ Reflection passed all safety checks - saving to database")
         stress_query = StressQuery(
             user_id=current_user.id,
             stressor=stressor,
@@ -395,6 +539,7 @@ Please provide supportive guidance. If the relevance level is 'low' or 'fallback
         db.session.commit()
         
         return jsonify({
+            'isCrisis': False,  # Explicitly mark as safe
             'ai_response': ai_response,
             'related_entries': [
                 {
@@ -408,6 +553,7 @@ Please provide supportive guidance. If the relevance level is 'low' or 'fallback
         })
         
     except Exception as e:
+        print(f"Error in generate_stress_reflection: {e}")
         return jsonify({'error': str(e)}), 500
     
     
@@ -430,4 +576,3 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     app.run(debug=True, host='0.0.0.0', port=5001)
-

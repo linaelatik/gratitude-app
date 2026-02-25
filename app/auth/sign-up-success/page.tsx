@@ -1,5 +1,6 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mail } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function SignUpSuccessPage() {
   return (
@@ -7,17 +8,13 @@ export default function SignUpSuccessPage() {
       <div className="w-full max-w-sm">
         <Card>
           <CardHeader className="space-y-2 text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Mail className="h-6 w-6 text-primary" />
-            </div>
-            <CardTitle className="text-2xl font-semibold">Check your email</CardTitle>
-            <CardDescription>We&apos;ve sent you a confirmation link</CardDescription>
+            <CardTitle className="text-2xl font-semibold">Account created!</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-center text-sm text-muted-foreground">
-              Please check your email and click the confirmation link to activate your account. Once confirmed, you can
-              sign in and start your gratitude journey.
-            </p>
+          <CardContent className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">Your account has been created successfully.</p>
+            <Link href="/auth/login">
+              <Button className="w-full">Go to login</Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
