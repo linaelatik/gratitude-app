@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
 import { flaskClient } from "@/lib/flask-client"
-import { useRouter } from "next/navigation"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,13 +24,13 @@ interface Entry {
 
 interface EntriesListProps {
   entries: Entry[]
-  onEntryDeleted: () => void  // Added this line
+  onEntryDeleted: () => void 
 }
 
-export function EntriesList({ entries, onEntryDeleted }: EntriesListProps) {  // Added onEntryDeleted
+export function EntriesList({ entries, onEntryDeleted }: EntriesListProps) {  
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const router = useRouter()
+\
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -39,11 +38,11 @@ export function EntriesList({ entries, onEntryDeleted }: EntriesListProps) {  //
     setIsDeleting(true)
     try {
       await flaskClient.deleteEntry(deleteId)
-      onEntryDeleted() // Refresh the entries list
+      onEntryDeleted() 
       setDeleteId(null)
     } catch (err) {
       console.error("Delete error:", err)
-      // Handle error here if needed
+   
     } finally {
       setIsDeleting(false)
     }

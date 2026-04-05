@@ -7,11 +7,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { flaskClient } from "@/lib/flask-client"
-import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
 interface EntryFormProps {
-  userId: string
+  userId: string // reserved for future use; auth is handled via JWT in Flask
   onEntryCreated: () => void
 }
 
@@ -22,7 +21,6 @@ export function EntryForm({ userId, onEntryCreated }: EntryFormProps) {
   const [error, setError] = useState<string | null>(null)
   const [showCrisisAlert, setShowCrisisAlert] = useState(false)
   const [crisisCategory, setCrisisCategory] = useState("none")
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

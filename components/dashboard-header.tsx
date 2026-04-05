@@ -15,7 +15,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { flaskClient } from "@/lib/flask-client"
 
-interface DashboardHeaderProps {
+interface DashboardHeaderProps {   
   user: {
     display_name: string | null
     email: string
@@ -61,13 +61,6 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Settings
-                </Link>
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
