@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -38,7 +38,7 @@ export default function StressReliefPage() {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await flaskClient.auth.getUser()
       
       if (!user) {
         router.push('/auth/login')
@@ -55,7 +55,7 @@ export default function StressReliefPage() {
 
   const loadStressHistory = async () => {
     try {
-      const historyData = await supabase.getStressReflectionHistory()
+      const historyData = await flaskClient.getStressReflectionHistory()
       setHistory(historyData.history || [])
     } catch (error) {
       console.error('Error loading stress history:', error)
@@ -74,7 +74,7 @@ export default function StressReliefPage() {
 
     try {
       // Flask backend will do the safety check and return crisis flag if needed
-      const response = await supabase.generateStressReflection(stressor.trim())
+      const response = await flaskClient.generateStressReflection(stressor.trim())
       
       // Check if Flask returned crisis flag
       if (response.isCrisis) {

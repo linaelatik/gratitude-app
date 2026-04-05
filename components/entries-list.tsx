@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { useRouter } from "next/navigation"
 import {
   AlertDialog,
@@ -38,7 +38,7 @@ export function EntriesList({ entries, onEntryDeleted }: EntriesListProps) {  //
     
     setIsDeleting(true)
     try {
-      await supabase.deleteEntry(deleteId)
+      await flaskClient.deleteEntry(deleteId)
       onEntryDeleted() // Refresh the entries list
       setDeleteId(null)
     } catch (err) {

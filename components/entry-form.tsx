@@ -6,7 +6,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
@@ -35,7 +35,7 @@ export function EntryForm({ userId, onEntryCreated }: EntryFormProps) {
 
     try {
       // Flask backend will do the safety check and return crisis flag if needed
-      const response = await supabase.createEntry(content.trim())
+      const response = await flaskClient.createEntry(content.trim())
       
       // Check if Flask returned crisis flag
       if (response.isCrisis) {

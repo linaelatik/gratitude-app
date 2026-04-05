@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { DashboardHeader } from "@/components/dashboard-header"
 import { EntryForm } from "@/components/entry-form"
 import { EntriesList } from "@/components/entries-list"
@@ -18,7 +18,7 @@ export default function DashboardPage() {
   const loadUserData = async () => {
     try {
       // Check authentication
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await flaskClient.auth.getUser()
       
       if (!user) {
         router.push('/auth/login')
@@ -28,7 +28,7 @@ export default function DashboardPage() {
       setUser(user)
       
       // Load entries
-      const entriesData = await supabase.getEntries()
+      const entriesData = await flaskClient.getEntries()
       setEntries(entriesData.entries || [])
       
     } catch (error) {
@@ -46,7 +46,7 @@ export default function DashboardPage() {
   // Function to refresh entries after creating new one
   const refreshEntries = async () => {
     try {
-      const entriesData = await supabase.getEntries()
+      const entriesData = await flaskClient.getEntries()
       setEntries(entriesData.entries || [])
     } catch (error) {
       console.error('Error refreshing entries:', error)
@@ -61,6 +61,7 @@ export default function DashboardPage() {
     return null
   }
 
+  // Streak calculation not implemented, feature retained for UI completeness
   const streak = 0
 
   return (

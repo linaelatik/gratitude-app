@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Sparkles, TrendingUp, Mail } from "lucide-react"
+import { Heart, Sparkles, TrendingUp, Shield } from "lucide-react"
 import Link from "next/link"
 
 export default function LandingPage() {
@@ -28,15 +28,15 @@ export default function LandingPage() {
       <section className="container mx-auto px-4 py-20 text-center">
         <div className="mx-auto max-w-3xl space-y-6">
           <h1 className="text-balance text-5xl font-bold leading-tight tracking-tight md:text-6xl">
-            Cultivate gratitude, one day at a time
+            A quieter way to reflect
           </h1>
           <p className="text-pretty text-xl text-muted-foreground">
-            Transform your mindset with daily gratitude journaling. Track your progress, reflect on positive moments,
-            and find peace during stressful times.
+            A simple space to write down what you're grateful for, find perspective when things feel heavy,
+            and notice the good things you might otherwise forget.
           </p>
           <div className="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row">
             <Button size="lg" asChild>
-              <Link href="/auth/sign-up">Start your journey</Link>
+              <Link href="/auth/sign-up">Get started</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
               <Link href="/auth/login">Sign in</Link>
@@ -49,7 +49,7 @@ export default function LandingPage() {
       <section className="border-t bg-muted/50 py-20">
         <div className="container mx-auto px-4">
           <div className="mx-auto max-w-5xl">
-            <h2 className="mb-12 text-center text-3xl font-bold">Everything you need for a gratitude practice</h2>
+            <h2 className="mb-12 text-center text-3xl font-bold">What it does</h2>
             <div className="grid gap-8 md:grid-cols-3">
               <Card>
                 <CardContent className="pt-6">
@@ -58,8 +58,7 @@ export default function LandingPage() {
                   </div>
                   <h3 className="mb-2 text-xl font-semibold">Daily Journaling</h3>
                   <p className="text-muted-foreground">
-                    Write down what you&apos;re grateful for each day. Build a consistent practice that transforms your
-                    mindset.
+                    Write what you're grateful for, big or small. No prompts, no pressure — just a place to put it down.
                   </p>
                 </CardContent>
               </Card>
@@ -69,10 +68,9 @@ export default function LandingPage() {
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
                     <TrendingUp className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="mb-2 text-xl font-semibold">Track Your Streak</h3>
+                  <h3 className="mb-2 text-xl font-semibold">Track Your Progress</h3>
                   <p className="text-muted-foreground">
-                    Stay motivated with streak tracking. See your progress and celebrate consistency in your gratitude
-                    journey.
+                    See your entries over time. Sometimes just knowing you've kept going is enough.
                   </p>
                 </CardContent>
               </Card>
@@ -84,33 +82,19 @@ export default function LandingPage() {
                   </div>
                   <h3 className="mb-2 text-xl font-semibold">AI Reflections</h3>
                   <p className="text-muted-foreground">
-                    Feeling stressed? Get AI-powered reflections based on your past entries to remind you of positive
-                    moments.
+                    When you're stressed, the app can pull from your past entries to remind you of things that helped before.
                   </p>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="md:col-span-3">
                 <CardContent className="pt-6">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <Mail className="h-6 w-6 text-primary" />
+                    <Shield className="h-6 w-6 text-primary" />
                   </div>
-                  <h3 className="mb-2 text-xl font-semibold">Weekly Summaries</h3>
+                  <h3 className="mb-2 text-xl font-semibold">Safety First</h3>
                   <p className="text-muted-foreground">
-                    Receive weekly email summaries with AI-generated insights about your gratitude patterns and growth.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="md:col-span-2">
-                <CardContent className="pt-6">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-                    <Heart className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="mb-2 text-xl font-semibold">Private & Secure</h3>
-                  <p className="text-muted-foreground">
-                    Your gratitude entries are private and secure. Only you can access your journal, giving you a safe
-                    space for reflection.
+                    If something you share sounds like you need real support, the app will say so and point you toward people who can actually help.
                   </p>
                 </CardContent>
               </Card>
@@ -123,12 +107,12 @@ export default function LandingPage() {
       <section className="border-t py-20">
         <div className="container mx-auto px-4 text-center">
           <div className="mx-auto max-w-2xl space-y-6">
-            <h2 className="text-balance text-4xl font-bold">Ready to start your gratitude journey?</h2>
+            <h2 className="text-balance text-4xl font-bold">Give it a try</h2>
             <p className="text-pretty text-lg text-muted-foreground">
-              Join thousands of people who are transforming their lives through daily gratitude practice.
+              It takes about a minute to get started. Your entries are stored locally and stay private.
             </p>
             <Button size="lg" asChild>
-              <Link href="/auth/sign-up">Get started for free</Link>
+              <Link href="/auth/sign-up">Get started</Link>
             </Button>
           </div>
         </div>
@@ -137,7 +121,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="mt-auto border-t py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
-          <p>&copy; 2025 Gratitude. All rights reserved.</p>
+          <p>&copy; 2026 Gratitude. All rights reserved.</p>
         </div>
       </footer>
     </div>

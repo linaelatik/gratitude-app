@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -32,46 +31,30 @@ export default function SignUpPage() {
     }
 
     try {
-      // First create the auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { data: authData, error: authError } = await flaskClient.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            display_name: displayName || email.split("@")[0],
-          },
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
+        display_name: displayName || email.split("@")[0],
+      })
 
-      if (authError) {
-        console.error("Auth error:", authError);
-        throw authError;
-      }
+      if (authError) throw authError
+      if (!authData?.user) throw new Error("No user data returned from signup")
 
-      if (!authData.user) {
-        throw new Error("No user data returned from signup");
-      }
+      // Sign in immediately after signup
+      await flaskClient.auth.signInWithPassword({ email, password })
 
-      // Immediately sign in after signup since we're running locally
-      await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      router.push("/auth/sign-up-success")
 
-
-      router.push("/auth/sign-up-success");
     } catch (error: unknown) {
-      console.error("Signup error:", error);
       if (error instanceof Error) {
-        setError(error.message);
+        setError(error.message)
       } else if (typeof error === 'object' && error !== null && 'message' in error) {
-        setError((error as {message: string}).message);
+        setError((error as { message: string }).message)
       } else {
-        setError("An unexpected error occurred during signup");
+        setError("An unexpected error occurred during signup")
       }
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
   }
 

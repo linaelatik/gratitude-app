@@ -13,7 +13,7 @@ import {
 import { Heart, Settings, LogOut, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 
 interface DashboardHeaderProps {
   user: {
@@ -26,7 +26,7 @@ export function DashboardHeader({ user }: DashboardHeaderProps) {
   const router = useRouter()
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    await flaskClient.auth.signOut()
     router.push("/")
   }
 

@@ -1,6 +1,11 @@
 // lib/flask-client.ts
+
 const API_BASE = 'http://localhost:5001/api'
 
+/**
+ * HTTP client for communicating with the Flask backend.
+ * Handles auth token storage and attaches Bearer tokens to all requests.
+ */
 class FlaskClient {
   private token: string | null = null
 
@@ -10,46 +15,45 @@ class FlaskClient {
     }
   }
 
-  private getHeaders() {
+  private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
-    
     if (this.token) {
       headers['Authorization'] = `Bearer ${this.token}`
     }
-    
     return headers
   }
 
   private async request(endpoint: string, options: RequestInit = {}) {
-    try {
-      const response = await fetch(`${API_BASE}${endpoint}`, {
-        ...options,
-        headers: {
-          ...this.getHeaders(),
-          ...options.headers,
-        },
-      })
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        ...this.getHeaders(),
+        ...options.headers,
+      },
+    })
 
-      const data = await response.json()
+    const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Request failed')
-      }
-
-      return data
-    } catch (error) {
-      throw error
+    if (!response.ok) {
+      throw new Error(data.error || 'Request failed')
     }
+
+    return data
   }
 
   auth = {
-    signUp: async ({ email, password }: { email: string; password: string }) => {
+    /** Register a new user and store the returned JWT. */
+    signUp: async ({ email, password, display_name }: {
+      email: string
+      password: string
+      display_name?: string
+    }) => {
       try {
         const data = await this.request('/auth/register', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, display_name }),
         })
 
         this.token = data.token
@@ -63,7 +67,11 @@ class FlaskClient {
       }
     },
 
-    signInWithPassword: async ({ email, password }: { email: string; password: string }) => {
+    /** Authenticate an existing user and store the returned JWT. */
+    signInWithPassword: async ({ email, password }: {
+      email: string
+      password: string
+    }) => {
       try {
         const data = await this.request('/auth/login', {
           method: 'POST',
@@ -81,6 +89,7 @@ class FlaskClient {
       }
     },
 
+    /** Return the currently authenticated user, or null if no valid token exists. */
     getUser: async () => {
       if (!this.token) {
         return { data: { user: null }, error: null }
@@ -90,6 +99,7 @@ class FlaskClient {
         const data = await this.request('/auth/me')
         return { data: { user: data.user }, error: null }
       } catch (error: any) {
+        // Token is invalid or expired — clear it
         this.token = null
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token')
@@ -98,16 +108,17 @@ class FlaskClient {
       }
     },
 
+    /** Clear the stored token and log the user out. */
     signOut: async () => {
       this.token = null
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token')
       }
       return { error: null }
-    }
+    },
   }
 
-  // Direct methods for entries
+  /** Create a new gratitude journal entry. */
   async createEntry(content: string) {
     return this.request('/entries', {
       method: 'POST',
@@ -115,25 +126,30 @@ class FlaskClient {
     })
   }
 
+  /** Fetch all journal entries for the authenticated user. */
   async getEntries() {
     return this.request('/entries')
   }
 
+  /** Delete a specific journal entry by ID. */
   async deleteEntry(entryId: string) {
     return this.request(`/entries/${entryId}`, {
       method: 'DELETE',
     })
   }
+
+  /** Generate a safety-aware AI reflection based on a stressor input. */
   async generateStressReflection(stressor: string) {
     return this.request('/stress-relief/generate', {
       method: 'POST',
       body: JSON.stringify({ stressor }),
     })
   }
-  
+
+  /** Fetch the history of all past stress relief interactions. */
   async getStressReflectionHistory() {
     return this.request('/stress-relief/history')
   }
 }
 
-export const supabase = new FlaskClient()
+export const flaskClient = new FlaskClient()

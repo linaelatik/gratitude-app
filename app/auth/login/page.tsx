@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -22,29 +21,23 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
-  
+
     try {
-      console.log('=== CALLING FLASK LOGIN ===')
-      const response = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      
-      console.log('=== LOGIN RESPONSE ===', response)
-      
+      const response = await flaskClient.auth.signInWithPassword({ email, password })
+
       if (response.error) {
         throw response.error
       }
-      
-      console.log('=== REDIRECTING TO DASHBOARD ===')
+
       router.push('/dashboard')
-      
+
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
       setIsLoading(false)
     }
   }
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center p-6">
       <div className="w-full max-w-sm">

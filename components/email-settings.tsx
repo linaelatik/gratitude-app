@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { useRouter } from "next/navigation"
 
 interface EmailSettingsProps {
@@ -24,7 +24,7 @@ export function EmailSettings({ subscription, userId }: EmailSettingsProps) {
     setWeeklySummary(checked)
 
     try {
-      const { error } = await supabase
+      const { error } = await flaskClient
         .from("email_subscriptions")
         .update({ weekly_summary: checked })
         .eq("user_id", userId)

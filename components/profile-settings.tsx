@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { supabase } from "@/lib/flask-client"
+import { flaskClient } from "@/lib/flask-client"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
@@ -33,7 +33,7 @@ export function ProfileSettings({ profile, userId }: ProfileSettingsProps) {
     setSuccess(false)
 
     try {
-      const { error } = await supabase.from("users").update({ display_name: displayName }).eq("id", userId)
+      const { error } = await flaskClient.from("users").update({ display_name: displayName }).eq("id", userId)
 
       if (error) throw error
 
