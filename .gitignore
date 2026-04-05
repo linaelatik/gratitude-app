@@ -33,3 +33,6 @@ next-env.d.ts
 
 backend/venv/
 *.log
+
+backend/instance/
+backend/__pycache__/
