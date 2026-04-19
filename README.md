@@ -12,7 +12,7 @@ This is not a consumer product. It is a research tool built to look and feel lik
 
 ## Demo
 
-[Watch the code walkthrough and live demo on Loom](#) <- replace with your Loom link
+[Watch the code walkthrough and live demo on Loom](https://www.loom.com/share/d3bf50b7f57d400a9abd6efe94d23e16) 
 
 ---
 
